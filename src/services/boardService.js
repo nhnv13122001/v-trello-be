@@ -1,5 +1,8 @@
-import { slugify } from '~/utils/formatter'
+import { cloneDeep } from 'lodash'
+import { StatusCodes } from 'http-status-codes'
 
+import MyError from '~/utils/MyError'
+import { slugify } from '~/utils/formatter'
 import { boardModel } from '~/models/boardModel'
 
 const createNew = async (reqBody) => {
@@ -13,6 +16,28 @@ const createNew = async (reqBody) => {
   }
 }
 
+const getDetails = async (boardId) => {
+  try {
+    const board = await boardModel.getDetails(boardId)
+    if (!board) {
+      throw new MyError(StatusCodes.NOT_FOUND, 'Board not found!')
+    }
+
+    const resBoard = cloneDeep(board)
+
+    resBoard.columns.forEach((column) => {
+      column.cards = resBoard.cards.filter(
+        (card) => card.columnId.toString() === column._id.toString()
+      )
+    })
+    delete resBoard.cards
+    return resBoard
+  } catch (error) {
+    throw new Error(error)
+  }
+}
+
 export const boardService = {
-  createNew
+  createNew,
+  getDetails
 }
