@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { ObjectId } from 'mongodb'
+import { ObjectId, ReturnDocument } from 'mongodb'
 
 import { cardModel } from './cardModel'
 import { GET_DB } from '~/config/mongodb'
@@ -89,10 +89,39 @@ const getDetails = async (id) => {
   }
 }
 
+const pushColumnOrderIds = async (column) => {
+  try {
+    const result = await GET_DB()
+      .collection(BOARD_COLLECTION_NAME)
+      .findOneAndUpdate(
+        {
+          _id:
+            typeof column.boardId === 'string'
+              ? new ObjectId(column.boardId)
+              : column.boardId
+        },
+        {
+          $push: {
+            columnOrderIds:
+              typeof column._id === 'string'
+                ? new ObjectId(column._id)
+                : column._id
+          }
+        },
+        { ReturnDocument: 'after' }
+      )
+
+    return result.value || null
+  } catch (error) {
+    throw new Error(error)
+  }
+}
+
 export const boardModel = {
   BOARD_COLLECTION_NAME,
   BOARD_COLLECTION_SCHEMA,
   createNew,
   findOneById,
-  getDetails
+  getDetails,
+  pushColumnOrderIds
 }
