@@ -7,8 +7,12 @@ import { OBJECT_ID_RULE, OBJECT_ID_RULE_MESSAGE } from '~/models/validators'
 const createNew = async (req, res, next) => {
   const correctCondition = Joi.object({
     boardId: Joi.string()
+      .required()
       .pattern(OBJECT_ID_RULE)
-      .message(OBJECT_ID_RULE_MESSAGE),
+      .message(OBJECT_ID_RULE_MESSAGE)
+      .messages({
+        'any.required': 'boardId is required (nhnv13122001)'
+      }),
     title: Joi.string().required().min(3).max(50).trim().strict().messages({
       'any.required': 'Title is required (nhnv13122001)',
       'string.empty': 'Title is not allowed to be empty (nhnv13122001)',
