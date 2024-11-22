@@ -55,9 +55,36 @@ const findOneById = async (id) => {
   }
 }
 
+const pushCardOrderIds = async (card) => {
+  try {
+    const result = await GET_DB()
+      .collection(COLUMN_COLLECTION_NAME)
+      .findOneAndUpdate(
+        {
+          _id:
+            typeof card.columnId === 'string'
+              ? new ObjectId(card.columnId)
+              : card.columnId
+        },
+        {
+          $push: {
+            cardOrderIds:
+              typeof card._id === 'string' ? new ObjectId(card._id) : card._id
+          }
+        },
+        { ReturnDocument: 'after' }
+      )
+
+    return result.value || null
+  } catch (error) {
+    throw new Error(error)
+  }
+}
+
 export const columnModel = {
   COLUMN_COLLECTION_NAME,
   COLUMN_COLLECTION_SCHEMA,
   createNew,
-  findOneById
+  findOneById,
+  pushCardOrderIds
 }

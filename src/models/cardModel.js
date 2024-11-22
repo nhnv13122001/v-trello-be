@@ -36,7 +36,8 @@ const createNew = async (data) => {
       .collection(CARD_COLLECTION_NAME)
       .insertOne({
         ...validData,
-        boardId: new ObjectId(validData.boardId)
+        boardId: new ObjectId(validData.boardId),
+        columnId: new ObjectId(validData.columnId)
       })
     return createdCard
   } catch (error) {
