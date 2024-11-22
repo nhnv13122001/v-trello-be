@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { ObjectId, ReturnDocument } from 'mongodb'
+import { ObjectId } from 'mongodb'
 
 import { cardModel } from './cardModel'
 import { GET_DB } from '~/config/mongodb'
@@ -21,6 +21,8 @@ const BOARD_COLLECTION_SCHEMA = Joi.object({
   updatedAt: Joi.date().timestamp('javascript').default(null),
   _destroy: Joi.boolean().default(false)
 })
+
+const INVALID_UPDATE_FIELDS = ['_id', 'createdAt']
 
 const validateBeforeCreate = async (data) => {
   return await BOARD_COLLECTION_SCHEMA.validateAsync(data, {
@@ -108,10 +110,33 @@ const pushColumnOrderIds = async (column) => {
                 : column._id
           }
         },
-        { ReturnDocument: 'after' }
+        { returnDocument: 'after' }
       )
 
-    return result.value || null
+    return result
+  } catch (error) {
+    throw new Error(error)
+  }
+}
+
+const update = async (boardId, updateData) => {
+  Object.keys(updateData).forEach((key) => {
+    if (INVALID_UPDATE_FIELDS.includes(key)) {
+      delete updateData[key]
+    }
+  })
+  try {
+    const result = await GET_DB()
+      .collection(BOARD_COLLECTION_NAME)
+      .findOneAndUpdate(
+        { _id: typeof boardId === 'string' ? new ObjectId(boardId) : boardId },
+        {
+          $set: updateData
+        },
+        { returnDocument: 'after' }
+      )
+
+    return result
   } catch (error) {
     throw new Error(error)
   }
@@ -123,5 +148,6 @@ export const boardModel = {
   createNew,
   findOneById,
   getDetails,
-  pushColumnOrderIds
+  pushColumnOrderIds,
+  update
 }
