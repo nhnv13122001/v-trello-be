@@ -3,7 +3,9 @@ import { StatusCodes } from 'http-status-codes'
 
 import MyError from '~/utils/MyError'
 import { slugify } from '~/utils/formatter'
+import { cardModel } from '~/models/cardModel'
 import { boardModel } from '~/models/boardModel'
+import { columnModel } from '~/models/columnModel'
 
 const createNew = async (reqBody) => {
   try {
@@ -48,8 +50,31 @@ const update = async (boardId, reqBody) => {
   }
 }
 
+const moveCardsToDifferentColumnAPI = async (reqBody) => {
+  try {
+    await columnModel.update(reqBody.prevColumnId, {
+      cardOrderIds: reqBody.prevCardOrderIds,
+      updateAt: Date.now()
+    })
+
+    await columnModel.update(reqBody.nextColumnId, {
+      cardOrderIds: reqBody.nextCardOrderIds,
+      updateAt: Date.now()
+    })
+
+    await cardModel.update(reqBody.currentCardId, {
+      columnId: reqBody.nextColumnId
+    })
+
+    return { updateResult: 'Successfully!' }
+  } catch (error) {
+    throw new Error(error)
+  }
+}
+
 export const boardService = {
   createNew,
   getDetails,
-  update
+  update,
+  moveCardsToDifferentColumnAPI
 }
