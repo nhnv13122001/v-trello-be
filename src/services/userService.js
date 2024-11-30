@@ -100,14 +100,12 @@ const login = async (reqBody) => {
     const accessToken = await jwtProvider.generateToken(
       userInfo,
       env.ACCESS_TOKEN_SECRET_SIGNATURE,
-      // env.ACCESS_TOKEN_LIFE
-      5
+      env.ACCESS_TOKEN_LIFE
     )
     const refreshToken = await jwtProvider.generateToken(
       userInfo,
       env.REFRESH_TOKEN_SECRET_SIGNATURE,
-      // env.REFRESH_TOKEN_LIFE
-      15
+      env.REFRESH_TOKEN_LIFE
     )
 
     return { accessToken, refreshToken, ...pickUser(existUser) }
@@ -131,8 +129,7 @@ const refreshToken = async (clientRefreshToken) => {
     const accessToken = await jwtProvider.generateToken(
       userInfo,
       env.ACCESS_TOKEN_SECRET_SIGNATURE,
-      // env.ACCESS_TOKEN_LIFE
-      5
+      env.ACCESS_TOKEN_LIFE
     )
 
     return { accessToken }
@@ -141,9 +138,34 @@ const refreshToken = async (clientRefreshToken) => {
   }
 }
 
+const update = async (userId, reqBody) => {
+  const existUser = await userModel.findOneById(userId)
+  if (!existUser) throw new MyError(StatusCodes.NOT_FOUND, 'Account not found!')
+  if (!existUser.isActive)
+    throw new MyError(StatusCodes.NOT_ACCEPTABLE, 'Your account is not active!')
+
+  let updatedUser = {}
+
+  if (reqBody.currentPassword && reqBody.newPassword) {
+    if (!bcryptjs.compareSync(reqBody.currentPassword, existUser.password)) {
+      throw new MyError(
+        StatusCodes.NOT_ACCEPTABLE,
+        'Your current password is incorrect!'
+      )
+    }
+    updatedUser = await userModel.update(existUser._id, {
+      password: bcryptjs.hashSync(reqBody.newPassword, 8)
+    })
+  } else {
+    updatedUser = await userModel.update(existUser._id, reqBody)
+  }
+  return pickUser(updatedUser)
+}
+
 export const userService = {
   createNew,
   verifyAccount,
   login,
-  refreshToken
+  refreshToken,
+  update
 }

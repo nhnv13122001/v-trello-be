@@ -95,8 +95,42 @@ const login = async (req, res, next) => {
   }
 }
 
+const update = async (req, res, next) => {
+  const correctCondition = Joi.object({
+    displayName: Joi.string().trim().strict(),
+    currentPassword: Joi.string()
+      .pattern(PASSWORD_RULE)
+      .message(`Current password: ${PASSWORD_RULE_MESSAGE}`)
+      .messages({
+        'any.required': 'Current password is required (nhnv13122001)',
+        'string.empty':
+          'Current password is not allowed to be empty (nhnv13122001)'
+      }),
+    newPassword: Joi.string()
+      .pattern(PASSWORD_RULE)
+      .message(`New password: ${PASSWORD_RULE_MESSAGE}`)
+      .messages({
+        'any.required': 'New password is required (nhnv13122001)',
+        'string.empty': 'New password is not allowed to be empty (nhnv13122001)'
+      })
+  })
+
+  try {
+    await correctCondition.validateAsync(req.body, {
+      abortEarly: false,
+      allowUnknown: true
+    })
+    next()
+  } catch (error) {
+    next(
+      new MyError(StatusCodes.UNPROCESSABLE_ENTITY, new Error(error).message)
+    )
+  }
+}
+
 export const userValidation = {
   createNew,
   verifyAccount,
-  login
+  login,
+  update
 }
