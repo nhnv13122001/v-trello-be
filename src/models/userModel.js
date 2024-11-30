@@ -2,7 +2,7 @@ import Joi from 'joi'
 import { ObjectId } from 'mongodb'
 
 import { GET_DB } from '~/config/mongodb'
-import { EMAIL_RULE, EMAIL_RULE_MESSAGE } from './validators'
+import { EMAIL_RULE, EMAIL_RULE_MESSAGE } from '~/utils/validators'
 
 const USER_ROLES = {
   CLIENT: 'client',
