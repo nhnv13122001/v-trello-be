@@ -8,6 +8,19 @@ import { boardService } from '~/services/boardService'
 // req.files
 // req.cookies
 // req.jwtDecoded
+const getBoards = async (req, res, next) => {
+  try {
+    const userId = req.jwtDecoded._id
+
+    const { page, itemsPerPage } = req.query
+    const result = await boardService.getBoards(userId, page, itemsPerPage)
+
+    res.status(StatusCodes.OK).json(result)
+  } catch (error) {
+    next(error)
+  }
+}
+
 const createNew = async (req, res, next) => {
   try {
     const createdBoard = await boardService.createNew(req.body)
@@ -50,5 +63,6 @@ export const boardController = {
   createNew,
   getDetails,
   update,
-  moveCardsToDifferentColumnAPI
+  moveCardsToDifferentColumnAPI,
+  getBoards
 }

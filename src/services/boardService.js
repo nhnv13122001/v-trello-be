@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-catch */
 import { cloneDeep } from 'lodash'
 import { StatusCodes } from 'http-status-codes'
 
@@ -6,6 +7,7 @@ import { slugify } from '~/utils/formatter'
 import { cardModel } from '~/models/cardModel'
 import { boardModel } from '~/models/boardModel'
 import { columnModel } from '~/models/columnModel'
+import { DEFAULT_PAGE, DEFAULT_ITEMS_PER_PAGE } from '~/utils/constants'
 
 const createNew = async (reqBody) => {
   try {
@@ -15,6 +17,23 @@ const createNew = async (reqBody) => {
     return getNewBoard
   } catch (error) {
     throw new Error(error)
+  }
+}
+
+const getBoards = async (userId, page, itemsPerPage) => {
+  try {
+    if (!page) page = DEFAULT_PAGE
+    if (!itemsPerPage) itemsPerPage = DEFAULT_ITEMS_PER_PAGE
+
+    const result = await boardModel.getBoards(
+      userId,
+      parseInt(page, 10),
+      parseInt(itemsPerPage, 10)
+    )
+
+    return result
+  } catch (error) {
+    throw error
   }
 }
 
@@ -76,5 +95,6 @@ export const boardService = {
   createNew,
   getDetails,
   update,
-  moveCardsToDifferentColumnAPI
+  moveCardsToDifferentColumnAPI,
+  getBoards
 }
