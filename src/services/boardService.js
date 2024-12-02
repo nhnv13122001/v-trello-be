@@ -9,14 +9,14 @@ import { boardModel } from '~/models/boardModel'
 import { columnModel } from '~/models/columnModel'
 import { DEFAULT_PAGE, DEFAULT_ITEMS_PER_PAGE } from '~/utils/constants'
 
-const createNew = async (reqBody) => {
+const createNew = async (uerId, reqBody) => {
   try {
     const newBoard = { ...reqBody, slug: slugify(reqBody.title) }
-    const createdBoard = await boardModel.createNew(newBoard)
+    const createdBoard = await boardModel.createNew(uerId, newBoard)
     const getNewBoard = await boardModel.findOneById(createdBoard.insertedId)
     return getNewBoard
   } catch (error) {
-    throw new Error(error)
+    throw error
   }
 }
 
@@ -37,11 +37,11 @@ const getBoards = async (userId, page, itemsPerPage) => {
   }
 }
 
-const getDetails = async (boardId) => {
+const getDetails = async (userId, boardId) => {
   try {
-    const board = await boardModel.getDetails(boardId)
+    const board = await boardModel.getDetails(userId, boardId)
     if (!board) {
-      throw new MyError(StatusCodes.NOT_FOUND, 'Board not found!')
+      throw new MyError(StatusCodes.NOT_FOUND, 'Board not found!!!!!!!!!!!!')
     }
 
     const resBoard = cloneDeep(board)
@@ -54,18 +54,18 @@ const getDetails = async (boardId) => {
     delete resBoard.cards
     return resBoard
   } catch (error) {
-    throw new Error(error)
+    throw error
   }
 }
 
 const update = async (boardId, reqBody) => {
   try {
-    const updateData = { ...reqBody, updateAt: Date.now() }
+    const updateData = { ...reqBody, updatedAt: Date.now() }
     const updatedBoard = await boardModel.update(boardId, updateData)
 
     return updatedBoard
   } catch (error) {
-    throw new Error(error)
+    throw error
   }
 }
 
@@ -73,12 +73,12 @@ const moveCardsToDifferentColumnAPI = async (reqBody) => {
   try {
     await columnModel.update(reqBody.prevColumnId, {
       cardOrderIds: reqBody.prevCardOrderIds,
-      updateAt: Date.now()
+      updatedAt: Date.now()
     })
 
     await columnModel.update(reqBody.nextColumnId, {
       cardOrderIds: reqBody.nextCardOrderIds,
-      updateAt: Date.now()
+      updatedAt: Date.now()
     })
 
     await cardModel.update(reqBody.currentCardId, {
@@ -87,7 +87,7 @@ const moveCardsToDifferentColumnAPI = async (reqBody) => {
 
     return { updateResult: 'Successfully!' }
   } catch (error) {
-    throw new Error(error)
+    throw error
   }
 }
 

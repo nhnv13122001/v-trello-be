@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-catch */
 import { columnModel } from '~/models/columnModel'
 import { boardModel } from '~/models/boardModel'
 import { cardModel } from '~/models/cardModel'
@@ -17,18 +18,18 @@ const createNew = async (reqBody) => {
 
     return getNewColumn
   } catch (error) {
-    throw new Error(error)
+    throw error
   }
 }
 
 const update = async (columnId, reqBody) => {
   try {
-    const updateData = { ...reqBody, updateAt: Date.now() }
+    const updateData = { ...reqBody, updatedAt: Date.now() }
     const updatedColumn = await columnModel.update(columnId, updateData)
 
     return updatedColumn
   } catch (error) {
-    throw new Error(error)
+    throw error
   }
 }
 
@@ -44,7 +45,7 @@ const deleteItem = async (columnId) => {
 
     return { deleteResult: 'Column and its Cards deleted successfully!' }
   } catch (error) {
-    throw new Error(error)
+    throw error
   }
 }
 

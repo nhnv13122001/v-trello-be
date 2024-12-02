@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-catch */
 import { cardModel } from '~/models/cardModel'
 import { columnModel } from '~/models/columnModel'
 
@@ -12,7 +13,7 @@ const createNew = async (reqBody) => {
 
     return getNewCard
   } catch (error) {
-    throw new Error(error)
+    throw error
   }
 }
 

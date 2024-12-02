@@ -41,12 +41,17 @@ const validateBeforeCreate = async (data) => {
   })
 }
 
-const createNew = async (data) => {
+const createNew = async (userId, data) => {
   try {
     const validData = await validateBeforeCreate(data)
+    const newBoardToAdd = {
+      ...validData,
+      ownerIds: [new ObjectId(userId)]
+    }
+
     const createdBoard = await GET_DB()
       .collection(BOARD_COLLECTION_NAME)
-      .insertOne(validData)
+      .insertOne(newBoardToAdd)
     return createdBoard
   } catch (error) {
     throw new Error(error)
@@ -115,16 +120,26 @@ const getBoards = async (userId, page, itemsPerPage) => {
   }
 }
 
-const getDetails = async (id) => {
+const getDetails = async (userId, boardId) => {
+  const queryConditions = [
+    { _id: typeof boardId === 'string' ? new ObjectId(boardId) : boardId },
+    // Điều kiện 01: Board chưa bị xóa
+    { _destroy: false },
+    // Điều kiện 02: cái thằng userId đang thực hiện cái request này nó phải thuộc vào một trong 2 cái mảng ownerIds hoặc memberIds
+    // sử dụng toán tử $all
+    {
+      $or: [
+        { ownerIds: { $all: [new ObjectId(userId)] } },
+        { memberIds: { $all: [new ObjectId(userId)] } }
+      ]
+    }
+  ]
   try {
     const result = await GET_DB()
       .collection(BOARD_COLLECTION_NAME)
       .aggregate([
         {
-          $match: {
-            _id: typeof id === 'string' ? new ObjectId(id) : id,
-            _destroy: false
-          }
+          $match: { $and: queryConditions }
         },
         {
           $lookup: {
