@@ -7,6 +7,7 @@ import { columnModel } from './columnModel'
 import { BOARD_TYPES } from '~/utils/constants'
 import { pagingSkipValue } from '~/utils/algorithms'
 import { OBJECT_ID_RULE, OBJECT_ID_RULE_MESSAGE } from '~/utils/validators'
+import { userModel } from './userModel'
 
 const BOARD_COLLECTION_NAME = 'boards'
 const BOARD_COLLECTION_SCHEMA = Joi.object({
@@ -155,6 +156,24 @@ const getDetails = async (userId, boardId) => {
             localField: '_id',
             foreignField: 'boardId',
             as: 'cards'
+          }
+        },
+        {
+          $lookup: {
+            from: userModel.USER_COLLECTION_NAME,
+            localField: 'ownerIds',
+            foreignField: '_id',
+            as: 'owners',
+            pipeline: [{ $project: { password: 0, verifyToken: 0 } }]
+          }
+        },
+        {
+          $lookup: {
+            from: userModel.USER_COLLECTION_NAME,
+            localField: 'memberIds',
+            foreignField: '_id',
+            as: 'members',
+            pipeline: [{ $project: { password: 0, verifyToken: 0 } }]
           }
         }
       ])
