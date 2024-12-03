@@ -1,6 +1,8 @@
 import Joi from 'joi'
 import { ObjectId } from 'mongodb'
 
+import { userModel } from './userModel'
+import { boardModel } from './boardModel'
 import { GET_DB } from '~/config/mongodb'
 import { OBJECT_ID_RULE, OBJECT_ID_RULE_MESSAGE } from '~/utils/validators'
 import { BOARD_INVITATION_STATUS, INVITATION_TYPES } from '~/utils/constants'
@@ -119,10 +121,61 @@ const update = async (invitationId, updateData) => {
   }
 }
 
+const findByUser = async (userId) => {
+  const queryConditions = [
+    { inviteeId: typeof userId === 'string' ? new ObjectId(userId) : userId },
+    // Điều kiện 01: Board chưa bị xóa
+    { _destroy: false }
+    // Điều kiện 02: cái thằng userId đang thực hiện cái request này nó phải thuộc vào một trong 2 cái mảng ownerIds hoặc memberIds
+    // sử dụng toán tử $all
+  ]
+  try {
+    const result = await GET_DB()
+      .collection(INVITATION_COLLECTION_NAME)
+      .aggregate([
+        {
+          $match: { $and: queryConditions }
+        },
+        {
+          $lookup: {
+            from: userModel.USER_COLLECTION_NAME,
+            localField: 'inviterId',
+            foreignField: '_id',
+            as: 'inviter',
+            pipeline: [{ $project: { password: 0, verifyToken: 0 } }]
+          }
+        },
+        {
+          $lookup: {
+            from: userModel.USER_COLLECTION_NAME,
+            localField: 'inviteeId',
+            foreignField: '_id',
+            as: 'invitee',
+            pipeline: [{ $project: { password: 0, verifyToken: 0 } }]
+          }
+        },
+        {
+          $lookup: {
+            from: boardModel.BOARD_COLLECTION_NAME,
+            localField: 'boardInvitation.boardId',
+            foreignField: '_id',
+            as: 'board'
+          }
+        }
+      ])
+      .toArray()
+
+    return result
+  } catch (error) {
+    throw new Error(error)
+  }
+}
+
 export const invitationModel = {
   INVITATION_COLLECTION_NAME,
   INVITATION_COLLECTION_SCHEMA,
   createNewBoardInvitation,
   findOneById,
-  update
+  update,
+  findByUser
 }
