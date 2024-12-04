@@ -1,6 +1,8 @@
 /* eslint-disable no-console */
 import cors from 'cors'
+import http from 'http'
 import express from 'express'
+import socketIo from 'socket.io'
 import exitHook from 'async-exit-hook'
 import cookieParser from 'cookie-parser'
 
@@ -9,6 +11,7 @@ import { env } from '~/config/environment'
 import { corsOptions } from './config/cors'
 import { CONNECT_DB, CLOSE_DB } from '~/config/mongodb.js'
 import { errorHandlingMiddleware } from './middlewares/errorHandlingMiddleware'
+import { inviteUserToBoardSocket } from './sockets/inviteUserToBoardSocket'
 
 const START_SERVER = () => {
   const app = express()
@@ -28,7 +31,16 @@ const START_SERVER = () => {
 
   app.use(errorHandlingMiddleware)
 
-  app.listen(env.APP_PORT, env.APP_HOST, () => {
+  const server = http.createServer(app)
+  // Khởi tạo biến io với server và cors
+  const io = socketIo(server, { cors: corsOptions })
+
+  io.on('connection', (socket) => {
+    inviteUserToBoardSocket(socket)
+  })
+
+  // Dùng server.listen thay vì app.listen vì lúc này server đã bao gồm express app và đã config socket.io
+  server.listen(env.APP_PORT, env.APP_HOST, () => {
     console.log(
       `3. Hello ${env.AUTHOR}, I am running at ${env.APP_HOST}:${env.APP_PORT}/`
     )

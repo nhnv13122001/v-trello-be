@@ -10,6 +10,7 @@ import { userModel } from '~/models/userModel'
 import { WEBSITE_DOMAIN } from '~/utils/constants'
 import { jwtProvider } from '~/providers/jwtProvider'
 import { brevoProvider } from '~/providers/brevoProvider'
+import { cloudinaryProvider } from '~/providers/cloudinaryProvider'
 
 const createNew = async (reqBody) => {
   try {
@@ -138,28 +139,44 @@ const refreshToken = async (clientRefreshToken) => {
   }
 }
 
-const update = async (userId, reqBody) => {
-  const existUser = await userModel.findOneById(userId)
-  if (!existUser) throw new MyError(StatusCodes.NOT_FOUND, 'Account not found!')
-  if (!existUser.isActive)
-    throw new MyError(StatusCodes.NOT_ACCEPTABLE, 'Your account is not active!')
-
-  let updatedUser = {}
-
-  if (reqBody.currentPassword && reqBody.newPassword) {
-    if (!bcryptjs.compareSync(reqBody.currentPassword, existUser.password)) {
+const update = async (userId, reqBody, userAvatarFile) => {
+  try {
+    const existUser = await userModel.findOneById(userId)
+    if (!existUser)
+      throw new MyError(StatusCodes.NOT_FOUND, 'Account not found!')
+    if (!existUser.isActive)
       throw new MyError(
         StatusCodes.NOT_ACCEPTABLE,
-        'Your current password is incorrect!'
+        'Your account is not active!'
       )
+
+    let updatedUser = {}
+
+    if (reqBody.currentPassword && reqBody.newPassword) {
+      if (!bcryptjs.compareSync(reqBody.currentPassword, existUser.password)) {
+        throw new MyError(
+          StatusCodes.NOT_ACCEPTABLE,
+          'Your current password is incorrect!'
+        )
+      }
+      updatedUser = await userModel.update(existUser._id, {
+        password: bcryptjs.hashSync(reqBody.newPassword, 8)
+      })
+    } else if (userAvatarFile) {
+      const uploadResult = await cloudinaryProvider.streamUpload(
+        userAvatarFile.buffer,
+        'users'
+      )
+      updatedUser = await userModel.update(existUser._id, {
+        avatar: uploadResult.secure_url
+      })
+    } else {
+      updatedUser = await userModel.update(existUser._id, reqBody)
     }
-    updatedUser = await userModel.update(existUser._id, {
-      password: bcryptjs.hashSync(reqBody.newPassword, 8)
-    })
-  } else {
-    updatedUser = await userModel.update(existUser._id, reqBody)
+    return pickUser(updatedUser)
+  } catch (error) {
+    throw error
   }
-  return pickUser(updatedUser)
 }
 
 export const userService = {

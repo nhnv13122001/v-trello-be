@@ -5,7 +5,9 @@ import { cardModel } from './cardModel'
 import { GET_DB } from '~/config/mongodb'
 import { columnModel } from './columnModel'
 import { BOARD_TYPES } from '~/utils/constants'
+import { pagingSkipValue } from '~/utils/algorithms'
 import { OBJECT_ID_RULE, OBJECT_ID_RULE_MESSAGE } from '~/utils/validators'
+import { userModel } from './userModel'
 
 const BOARD_COLLECTION_NAME = 'boards'
 const BOARD_COLLECTION_SCHEMA = Joi.object({
@@ -14,6 +16,16 @@ const BOARD_COLLECTION_SCHEMA = Joi.object({
   description: Joi.string().required().min(3).max(256).trim().strict(),
   type: Joi.string().valid(BOARD_TYPES.PUBLIC, BOARD_TYPES.PRIVATE).required(),
   columnOrderIds: Joi.array()
+    .items(Joi.string().pattern(OBJECT_ID_RULE).message(OBJECT_ID_RULE_MESSAGE))
+    .default([]),
+
+  // Những Admin của board
+  ownerIds: Joi.array()
+    .items(Joi.string().pattern(OBJECT_ID_RULE).message(OBJECT_ID_RULE_MESSAGE))
+    .default([]),
+
+  // Những thành viên của board
+  memberIds: Joi.array()
     .items(Joi.string().pattern(OBJECT_ID_RULE).message(OBJECT_ID_RULE_MESSAGE))
     .default([]),
 
@@ -30,12 +42,17 @@ const validateBeforeCreate = async (data) => {
   })
 }
 
-const createNew = async (data) => {
+const createNew = async (userId, data) => {
   try {
     const validData = await validateBeforeCreate(data)
+    const newBoardToAdd = {
+      ...validData,
+      ownerIds: [new ObjectId(userId)]
+    }
+
     const createdBoard = await GET_DB()
       .collection(BOARD_COLLECTION_NAME)
-      .insertOne(validData)
+      .insertOne(newBoardToAdd)
     return createdBoard
   } catch (error) {
     throw new Error(error)
@@ -55,16 +72,75 @@ const findOneById = async (id) => {
   }
 }
 
-const getDetails = async (id) => {
+const getBoards = async (userId, page, itemsPerPage) => {
+  try {
+    const queryConditions = [
+      // Điều kiện 01: Board chưa bị xóa
+      { _destroy: false },
+      // Điều kiện 02: cái thằng userId đang thực hiện cái request này nó phải thuộc vào một trong 2 cái mảng ownerIds hoặc memberIds
+      // sử dụng toán tử $all
+      {
+        $or: [
+          { ownerIds: { $all: [new ObjectId(userId)] } },
+          { memberIds: { $all: [new ObjectId(userId)] } }
+        ]
+      }
+    ]
+
+    const result = await GET_DB()
+      .collection(BOARD_COLLECTION_NAME)
+      .aggregate(
+        [
+          { $match: { $and: queryConditions } },
+          // $sort sắp xếp board theo title (mặc định B đứng trước a theo chuẩn ASCII)
+          { $sort: { title: 1 } },
+          // $facet để xử lý nhiều luồng trong 1 query
+          {
+            $facet: {
+              // Luồng 01: Query boards
+              queryBoards: [
+                { $skip: pagingSkipValue(page, itemsPerPage) }, // Bỏ qua số lượng bản ghi của những page trước đó
+                { $limit: itemsPerPage } // Giới hạn tối đa số lượng bản ghi trả về trên một page
+              ],
+              // Luồng 02: Query đếm số lượng tổng tất cả số lượng bảng ghi boards trong db trả về vào biến countedAllBoards
+              queryTotalBoards: [{ $count: 'countedAllBoards' }]
+            }
+          }
+        ],
+        // Fix vụ chữ B hoa đứng trước a thường
+        { collation: { locale: 'en' } }
+      )
+      .toArray()
+
+    return {
+      boards: result[0]?.queryBoards || [],
+      totalBoards: result[0]?.queryTotalBoards[0]?.countedAllBoards || 0
+    }
+  } catch (error) {
+    throw new Error(error)
+  }
+}
+
+const getDetails = async (userId, boardId) => {
+  const queryConditions = [
+    { _id: typeof boardId === 'string' ? new ObjectId(boardId) : boardId },
+    // Điều kiện 01: Board chưa bị xóa
+    { _destroy: false },
+    // Điều kiện 02: cái thằng userId đang thực hiện cái request này nó phải thuộc vào một trong 2 cái mảng ownerIds hoặc memberIds
+    // sử dụng toán tử $all
+    {
+      $or: [
+        { ownerIds: { $all: [new ObjectId(userId)] } },
+        { memberIds: { $all: [new ObjectId(userId)] } }
+      ]
+    }
+  ]
   try {
     const result = await GET_DB()
       .collection(BOARD_COLLECTION_NAME)
       .aggregate([
         {
-          $match: {
-            _id: typeof id === 'string' ? new ObjectId(id) : id,
-            _destroy: false
-          }
+          $match: { $and: queryConditions }
         },
         {
           $lookup: {
@@ -80,6 +156,24 @@ const getDetails = async (id) => {
             localField: '_id',
             foreignField: 'boardId',
             as: 'cards'
+          }
+        },
+        {
+          $lookup: {
+            from: userModel.USER_COLLECTION_NAME,
+            localField: 'ownerIds',
+            foreignField: '_id',
+            as: 'owners',
+            pipeline: [{ $project: { password: 0, verifyToken: 0 } }]
+          }
+        },
+        {
+          $lookup: {
+            from: userModel.USER_COLLECTION_NAME,
+            localField: 'memberIds',
+            foreignField: '_id',
+            as: 'members',
+            pipeline: [{ $project: { password: 0, verifyToken: 0 } }]
           }
         }
       ])
@@ -175,6 +269,29 @@ const pullColumnOrderIds = async (column) => {
   }
 }
 
+const pushMemberIds = async (boardId, userId) => {
+  try {
+    const result = await GET_DB()
+      .collection(BOARD_COLLECTION_NAME)
+      .findOneAndUpdate(
+        {
+          _id: typeof boardId === 'string' ? new ObjectId(boardId) : boardId
+        },
+        {
+          $push: {
+            memberIds:
+              typeof userId === 'string' ? new ObjectId(userId) : userId
+          }
+        },
+        { returnDocument: 'after' }
+      )
+
+    return result
+  } catch (error) {
+    throw new Error(error)
+  }
+}
+
 export const boardModel = {
   BOARD_COLLECTION_NAME,
   BOARD_COLLECTION_SCHEMA,
@@ -183,5 +300,7 @@ export const boardModel = {
   getDetails,
   pushColumnOrderIds,
   update,
-  pullColumnOrderIds
+  pullColumnOrderIds,
+  getBoards,
+  pushMemberIds
 }

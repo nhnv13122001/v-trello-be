@@ -4,6 +4,12 @@ import { StatusCodes } from 'http-status-codes'
 import MyError from '~/utils/MyError'
 import { userService } from '~/services/userService'
 
+// req.body
+// req.query
+// req.params
+// req.files
+// req.cookies
+// req.jwtDecoded
 const createNew = async (req, res, next) => {
   try {
     const createdUser = await userService.createNew(req.body)
@@ -82,7 +88,13 @@ const refreshToken = async (req, res, next) => {
 const update = async (req, res, next) => {
   try {
     const userId = req.jwtDecoded._id
-    const updatedUser = await userService.update(userId, req.body)
+    const userAvatarFile = req.file
+
+    const updatedUser = await userService.update(
+      userId,
+      req.body,
+      userAvatarFile
+    )
     res.status(StatusCodes.OK).json(updatedUser)
   } catch (error) {
     next(error)
