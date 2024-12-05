@@ -72,7 +72,7 @@ const findOneById = async (id) => {
   }
 }
 
-const getBoards = async (userId, page, itemsPerPage) => {
+const getBoards = async (userId, page, itemsPerPage, queryFilters) => {
   try {
     const queryConditions = [
       // Điều kiện 01: Board chưa bị xóa
@@ -87,6 +87,13 @@ const getBoards = async (userId, page, itemsPerPage) => {
       }
     ]
 
+    if (queryFilters) {
+      Object.keys(queryFilters).forEach((key) => {
+        queryConditions.push({
+          [key]: { $regex: new RegExp(queryFilters[key], 'i') }
+        })
+      })
+    }
     const result = await GET_DB()
       .collection(BOARD_COLLECTION_NAME)
       .aggregate(
